@@ -1,5 +1,5 @@
 import { defaults, generatePlan, groceryList, formatAmount } from '../src/planner.js';
-import { catalogueVersion } from '../src/data.js';
+import { catalogueVersion, dishes } from '../src/data.js';
 import { storageKey } from '../src/state.js';
 
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
@@ -177,6 +177,22 @@ async function run() {
       assert(!find('[data-grocery="chana"]') && !find('[data-grocery="besan"]'), 'Excluded ingredients in groceries');
       assert(find('[data-grocery]'), 'Grocery list unexpectedly empty');
       await load(memory.value); check();
+    });
+    await test('Variety swap removes same-day chickpea overlap and survives reload', async () => {
+      const prefs = { ...defaults, slots: ['Lunch', 'Snacks'],
+        dislikes: dishes.filter(d => !['matki', 'sundal', 'makhana', 'fruit'].includes(d.id)).map(d => d.name).join(';') };
+      const saved = fixture(prefs);
+      saved.plan[0].meals.Snacks = 'sundal';
+      await load(JSON.stringify(saved));
+      const before = stored();
+      click('[data-day="0"][data-slot="Snacks"]');
+      const after = stored();
+      assert(['makhana', 'fruit'].includes(after.plan[0].meals.Snacks), 'Swap kept avoidable chickpea overlap');
+      before.plan.forEach((day, index) => Object.keys(day.meals).forEach(slot => {
+        if (index !== 0 || slot !== 'Snacks') assert(day.meals[slot] === after.plan[index].meals[slot], 'Swap changed another slot');
+      }));
+      await load(JSON.stringify(after));
+      assert(JSON.stringify(stored().plan) === JSON.stringify(after.plan), 'Variety swap lost on reload');
     });
     for (const width of [320, 375, 390, 768, 1200]) {
       await test(`Plan, preferences, groceries and dialog fit a ${width}px viewport`, async () => {

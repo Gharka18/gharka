@@ -38,6 +38,7 @@ A **module** is a JavaScript file that shares selected data or functions with ot
 | [src/state.js](../src/state.js) | Validates and restores saved data, handles catalogue changes and reports storage failures. |
 | [src/planner.js](../src/planner.js) | Filters dishes, generates weeks, selects replacements, and calculates groceries. It does not manipulate the webpage. |
 | [src/data.js](../src/data.js) | Defines 46 dishes, 55 ingredients, cuisines, meal slots, and allergen labels. |
+| [src/variety-data.js](../src/variety-data.js) | Explicit major-ingredient and family labels for all 46 dishes; independent of allergy aliases. |
 | [src/styles.css](../src/styles.css) | Defines colours, fonts, layouts, focus styles, and adjustments for smaller screens. |
 | [package.json](../package.json) | Defines optional start/test commands; declares no dependencies. |
 
@@ -47,7 +48,7 @@ Navigation switches the `view` variable within the same page. There is no URL-ba
 
 ### Catalogue and plan data
 
-`data.js` converts compact recipe rows into dish objects with `id`, `name`, `slots`, `cuisine`, `time`, `emoji`, `ingredients`, `method`, `diet`, and `allergens` fields.
+`data.js` converts compact recipe rows into dish objects with `id`, `name`, `slots`, `cuisine`, `time`, `emoji`, `ingredients`, `method`, `diet`, `allergens`, and `variety` fields. The latter contains `majorIngredients` and `families` arrays from an explicit dish-ID mapping; no quantities are inferred.
 
 Every recipe explicitly lists its own ingredients and seasonings; there is no automatic shared seasoning bundle. Ingredient quantities are approximate amounts for **one adult serving**. A separate ingredient record supplies its name, category, unit, and allergen tags. Lunch and dinner share the same eligible meal-slot catalogue.
 
@@ -110,25 +111,31 @@ The main functions are in [src/planner.js](../src/planner.js).
 
 ### Build a week
 
-`generatePlan()` visits Monday through Sunday and each selected slot in order. It tracks how often each dish has been chosen across the whole week.
+`generatePlan()` visits Monday through Sunday. Inside a day it fills the smallest eligible pools first (canonical meal order breaks equal pool sizes), while preserving the selected slot order for display. `rankCandidates()` compares candidates against already planned meals, excluding the target slot.
 
 ```mermaid
 flowchart TD
     Slot["Next day and selected meal slot"] --> Filter["eligible: apply all restrictions"]
     Filter --> Available{"Any eligible dishes?"}
     Available -->|No| Empty["Store null: show no matching dish"]
-    Available -->|Yes| Least["Find least-used eligible dishes"]
-    Least --> Pick["Randomly choose among those dishes"]
-    Pick --> Count["Store dish ID and increment its count"]
+    Available -->|Yes| Least["Rank eligible dishes by soft variety priorities"]
+    Least --> Pick["Choose first; stable dish-ID tie-break"]
+    Pick --> Count["Store dish ID for subsequent ranking"]
     Empty --> Continue["Continue until all selected slots are filled or marked empty"]
     Count --> Continue
 ```
 
-All four slots produce 28 meal positions; dinner alone produces seven. Days are labels, not dated calendar entries. Counts reset for every new week, so there is no memory of earlier weeks. Limited eligible choices can repeat. Restrictions are not deliberately relaxed to fill empty positions.
+All four slots produce 28 meal positions; dinner alone produces seven. Days are labels, not dated calendar entries. Planning context resets for every new week, so there is no memory of earlier weeks. Limited eligible choices can repeat. Restrictions are not deliberately relaxed to fill empty positions.
 
 ### Replace one dish
 
-`replacement()` reapplies eligibility, excludes the current dish, and prefers alternatives unused anywhere in the week. If all alternatives have already appeared, it randomly chooses an eligible alternative anyway. With no alternative, it returns `null` and the interface keeps the existing meal.
+`replacement()` reapplies eligibility, excludes the current dish, and calls the same `rankCandidates()` against the rest of the week, including both adjacent days. It returns the best eligible alternative even when repetition is unavoidable. With no alternative, it returns `null` and the interface keeps the existing meal.
+
+Ranking compares these values in order, with lower values preferred: same-day exact-dish occurrences; same-day major-tag overlaps; weekly dish occurrences; adjacent-day meals sharing an ID or family; total weekly major-tag plus family-tag overlaps. Dish ID breaks a complete tie using stable string ordering. Each priority wins over every later priority; candidates are never removed by variety. Multiple major ingredients and families are supported. There is no base balancing or weighted optimisation.
+
+Metadata labels describe culinary roles. Thepla's minor besan does not count as chickpea-major, but remains fully subject to exclusions. Onion defines kanda poha and tomato defines rasam/sandwich; routine seasonings elsewhere do not drive variety. Existing ingredient quantities, allergens and saved-plan validity are unchanged, so no catalogue-version bump is needed.
+
+Selection is deterministic: unchanged preferences produce the same regenerated week. Old optional random callbacks supplied by legacy tests/storage code no longer influence selection. A day-by-day greedy ranking does not promise the globally best week; limited pools and higher priorities can cause repeats or adjacent similar families.
 
 The replacement click handler in `bind()` changes only the selected slot, clears all grocery checkmarks, saves, and redraws. A replacement does not teach the app a new permanent dislike.
 
@@ -199,9 +206,9 @@ flowchart TD
 
 With the server running, open `http://127.0.0.1:5173/tests/`. Alternatively, use `npm test` when Node/npm are installed. The Node adapter uses built-in `node:test` and `node:assert/strict`; no test package is required.
 
-The 52 shared checks cover filters and dietary regressions, generation across 150 constructed household configurations, swaps, explicit recipe ingredients, grocery arithmetic, household scaling, display precision, empty plans, preference validation, saved-state restoration, catalogue updates and failed storage. `generatePlan()` and `replacement()` accept a random-number function for predictable tests.
+The 68 shared checks cover filters and dietary regressions, generation across 150 constructed household configurations, swaps, explicit recipe ingredients, grocery arithmetic, household scaling, display precision, empty plans, preference validation, saved-state restoration, catalogue updates and failed storage. Variety regressions cover explicit metadata, ordered preferences, deterministic selection, hard-constraint fallback, swaps, groceries and preservation of safe saved plans.
 
-Open `/tests/browser.html` and select **Run browser checks** for 17 additional automated checks. The runner loads the actual application into an iframe and substitutes in-memory storage, protecting the user's saved household. It exercises swaps, checklist updates, reload, dialogs, invalid forms, empty states, corrupt records, blocked/quota storage, download content/failure, runtime-error feedback and layouts at 320, 375, 390, 768 and 1200 pixels.
+Open `/tests/browser.html` and select **Run browser checks** for 18 additional automated checks. The runner loads the actual application into an iframe and substitutes in-memory storage, protecting the user's saved household. It exercises swaps, checklist updates, reload, dialogs, invalid forms, empty states, corrupt records, blocked/quota storage, download content/failure, runtime-error feedback and layouts at 320, 375, 390, 768 and 1200 pixels.
 
 Download checks intercept the browser API to verify the generated file content; they do not prove that every operating system saves the file correctly. Viewport checks do not replace real-phone or screen-reader testing. Tests do not establish recipe accuracy, nutritional balance or comprehensive allergy safety. See [TESTING.md](TESTING.md) for evidence and remaining checks.
 

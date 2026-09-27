@@ -53,9 +53,9 @@ src/
 
 ## Automated checks
 
-With the server running, open **http://127.0.0.1:5173/tests/**. It runs the same 52 checks used for planner verification. If Node is installed later, you can also run `npm test` without installing packages.
+With the server running, open **http://127.0.0.1:5173/tests/**. It runs the same 68 checks used for planner verification. If Node is installed later, you can also run `npm test` without installing packages.
 
-Open **http://127.0.0.1:5173/tests/browser.html** and select **Run browser checks** for 17 additional checks covering screen interactions, recovery and responsive layouts. These use isolated memory storage and do not change your saved household.
+Open **http://127.0.0.1:5173/tests/browser.html** and select **Run browser checks** for 18 additional checks covering screen interactions, recovery and responsive layouts. These use isolated memory storage and do not change your saved household.
 
 ## First-version boundaries
 
@@ -67,3 +67,5 @@ Open **http://127.0.0.1:5173/tests/browser.html** and select **Run browser check
 - The responsive design includes stacked meal cards for phones. Safari checks cover 320, 375, 390, 768 and 1200 pixel viewports; real-phone verification is still a manual follow-up.
 
 Read [the MVP plan](docs/MVP.md) for scope and future phases. The app is ready for a local pilot; it has not been published online.
+
+Meal Variety V1 uses reviewed major-ingredient and dish-family labels in `src/variety-data.js`. Generation and Swap share a deterministic ranking: same-day duplicates, same-day major overlap, weekly dish count, adjacent families, weekly major/family use, then dish ID. Restrictions always win; valid repeats beat empty slots. Regenerating unchanged preferences currently returns the same week. There is no rice/roti balancing.

@@ -1,6 +1,7 @@
+import { varietyByDish } from '../src/variety-data.js';
 import {restoreState,loadState,saveState,validPlan,storageKey} from '../src/state.js';
 import {dishes,ingredients,meals,allergens,cuisines,catalogueVersion} from '../src/data.js';
-import {defaults,generatePlan,eligible,replacement,groceryList,formatAmount,validPreferences,resolveExclusions,planSummary,emptyMealReason} from '../src/planner.js';
+import {defaults,generatePlan,rankCandidates,eligible,replacement,groceryList,formatAmount,validPreferences,resolveExclusions,planSummary,emptyMealReason} from '../src/planner.js';
 export function runSuite(){
 const results=[];const assert=(v,m)=>{if(!v)throw new Error(m||'Assertion failed');};const test=(name,fn)=>{try{fn();results.push({name,passed:true});}catch(e){results.push({name,passed:false,error:e.message});}};
 test('Default week has 28 vegetarian meals',()=>{const p=generatePlan(defaults);assert(p.length===7);assert(p.every(day=>Object.values(day.meals).length===4&&Object.values(day.meals).every(id=>dishes.find(d=>d.id===id)?.diet==='Vegetarian')));});
@@ -304,6 +305,137 @@ test('Saved chickpea exclusions invalidate previously allowed besan meals',()=>{
   assert(state.prefs.otherAllergies==='chickpeas'&&state.checked.length===0);
   assert(planSummary(state.plan).planned===28);
   assert(groceryList(state.plan,4).every(i=>!['chana','besan'].includes(i.id)));
+});
+const dish = id => dishes.find(d => d.id === id);
+const context = (...dayMeals) => dayMeals.map(meals => ({ meals }));
+const first = (ids, plan, day = 0, slot = 'Snacks') => rankCandidates(ids.map(dish), plan, day, slot)[0]?.id;
+const only = (ids, changes = {}) => ({ ...defaults, ...changes,
+  dislikes: dishes.filter(d => !ids.includes(d.id)).map(d => d.name).join(';') });
+
+test('All 46 dishes have explicit nonempty unique variety labels',()=>{
+  assert(dishes.length===46&&Object.keys(varietyByDish).length===46);
+  for(const d of dishes)for(const key of ['majorIngredients','families']){
+    const tags=d.variety[key];
+    assert(Array.isArray(tags)&&tags.length>0,d.id);
+    assert(new Set(tags).size===tags.length&&tags.every(t=>/^[a-z]+(?:-[a-z]+)*$/.test(t)),d.id);
+  }
+  assert(Object.keys(varietyByDish).every(id=>dish(id)));
+});
+test('Chana usal and sundal avoid sharing a day when a safe snack exists',()=>{
+  const p=only(['matki','sundal','makhana'],{slots:['Lunch','Snacks']});
+  const plan=generatePlan(p);
+  assert(plan.every(d=>d.meals.Lunch==='matki'&&d.meals.Snacks==='makhana'));
+  assert(first(['sundal','makhana'],context({Lunch:'matki'}))==='makhana');
+});
+test('Only safe repeated chickpea meals fill every slot',()=>{
+  const p=only(['matki','sundal'],{slots:['Lunch','Snacks']});
+  assert(generatePlan(p).every(d=>d.meals.Lunch==='matki'&&d.meals.Snacks==='sundal'));
+});
+test('Exact same-day duplication outranks other soft preferences',()=>{
+  assert(first(['matki','chole'],context({Lunch:'matki'}),0,'Dinner')==='chole');
+  const p=only(['matki'],{slots:['Lunch','Dinner']});
+  assert(generatePlan(p).every(d=>d.meals.Lunch==='matki'&&d.meals.Dinner==='matki'));
+});
+test('Weekly dish usage wins over family similarity and uses available alternatives',()=>{
+  const plan=context({Snacks:'chana-chaat'},{Snacks:'makhana'},{});
+  assert(first(['chana-chaat','sundal'],plan,1)==='sundal');
+  const p=only(['fruit','makhana','sandwich'],{slots:['Snacks']});
+  const ids=generatePlan(p).map(d=>d.meals.Snacks);
+  assert(new Set(ids.slice(0,3)).size===3);
+  const counts=[...new Set(ids)].map(id=>ids.filter(x=>x===id).length);
+  assert(Math.max(...counts)-Math.min(...counts)<=1);
+});
+test('Adjacent-day families are spaced when higher priorities tie',()=>{
+  assert(first(['moong-chilla','upma'],context({Breakfast:'besan-chilla'},{}),1,'Breakfast')==='upma');
+  assert(first(['moong-chilla','upma'],context({}, {Breakfast:'besan-chilla'}),0,'Breakfast')==='upma');
+  const p=only(['besan-chilla','moong-chilla','upma'],{slots:['Breakfast']});
+  const plan=generatePlan(p);
+  assert(plan[0].meals.Breakfast==='besan-chilla'&&plan[1].meals.Breakfast==='upma');
+});
+test('Weekly major and family usage breaks otherwise equal choices',()=>{
+  assert(first(['sundal','makhana'],context({Lunch:'matki'},{},{}),2)==='makhana');
+  assert(first(['moong-chilla','upma'],context({Breakfast:'besan-chilla'},{},{}),2,'Breakfast')==='upma');
+});
+test('Minor besan in thepla is excluded from variety but still enforced for safety',()=>{
+  assert(!dish('thepla').variety.majorIngredients.includes('chickpea'));
+  assert(first(['chana-chaat','makhana'],context({Breakfast:'thepla'}))==='chana-chaat');
+  assert(!eligible({...defaults,otherAllergies:'chickpea'},'Breakfast').some(d=>d.id==='thepla'));
+});
+test('Both spinach and paneer are recognised in multi-major meals',()=>{
+  assert(JSON.stringify(dish('palak-paneer').variety.majorIngredients)===JSON.stringify(['spinach','paneer']));
+  assert(first(['thepla','upma'],context({Lunch:'palak-paneer'}),0,'Breakfast')==='upma');
+  // A synthetic candidate isolates paneer, which currently has only one real recipe.
+  const paneer={...dish('thepla'),id:'a-paneer',variety:{majorIngredients:['paneer'],families:['test']}};
+  assert(rankCandidates([paneer,dish('upma')],context({Lunch:'palak-paneer'}),0,'Breakfast')[0].id==='upma');
+});
+test('Stable ranking is pure and independent of candidate input order',()=>{
+  const plan=context({Lunch:'matki'}),before=JSON.stringify(plan);
+  const a=[dish('fruit'),dish('makhana')],copy=[...a];
+  assert(first(['makhana','fruit'],plan)===first(['fruit','makhana'],plan));
+  rankCandidates(a,plan,0,'Snacks');
+  assert(a.every((d,i)=>d===copy[i])&&JSON.stringify(plan)===before);
+  assert(JSON.stringify(generatePlan(defaults))===JSON.stringify(generatePlan(defaults)));
+});
+test('Generation preserves display order and never empties a nonempty eligible pool',()=>{
+  for(const changes of [{time:15},{time:30},{cuisines:['Gujarati']},{allergies:['Dairy','Gluten','Peanuts']},{slots:['Dinner','Breakfast']}]){
+    const p={...defaults,...changes},plan=generatePlan(p);
+    for(const day of plan){
+      assert(JSON.stringify(Object.keys(day.meals))===JSON.stringify(p.slots));
+      for(const slot of p.slots)assert(Boolean(day.meals[slot])===(eligible(p,slot).length>0));
+    }
+  }
+});
+test('Generation and repeated swaps never trade hard constraints for variety',()=>{
+  for(const diet of ['Vegetarian','Eggetarian','Non-Vegetarian']){
+    const p={...defaults,diet,time:30,cuisines:['North Indian'],allergies:['Dairy','Peanuts'],dislikes:'potato',otherAllergies:'chickpea'};
+    const plan=generatePlan(p);
+    const check=(id,slot)=>{
+      assert(id,'All slots have safe alternatives for this fixture');
+      const d=dish(id);assert(d.slots.includes(slot)&&d.time<=30);
+      assert(['North Indian','Everyday Indian'].includes(d.cuisine));
+      assert(!d.ingredients.potato&&!d.ingredients.chana&&!d.ingredients.besan);
+      assert(!d.allergens.includes('Dairy')&&!d.allergens.includes('Peanuts'));
+      assert(diet==='Non-Vegetarian'||d.diet==='Vegetarian'||(diet==='Eggetarian'&&d.diet==='Eggetarian'));
+    };
+    for(let day=0;day<7;day++)for(const slot of p.slots){
+      check(plan[day].meals[slot],slot);
+      for(let i=0;i<3;i++){
+        const id=replacement(plan,p,day,slot);
+        if(id){assert(id!==plan[day].meals[slot]);check(id,slot);plan[day].meals[slot]=id;}
+      }
+    }
+  }
+});
+test('Swap prefers same-day variety even over an unused chickpea dish',()=>{
+  const p=only(['matki','sundal','makhana','fruit'],{slots:['Lunch','Snacks']});
+  const plan=context({Lunch:'matki',Snacks:'fruit'},{Snacks:'makhana'}),before=JSON.stringify(plan);
+  assert(replacement(plan,p,0,'Snacks')==='makhana');
+  assert(JSON.stringify(plan)===before);
+});
+test('Swap ignores outgoing meal and falls back to a conflicting safe alternative',()=>{
+  const p=only(['matki','sundal','chana-chaat'],{slots:['Lunch','Snacks']});
+  const plan=context({Lunch:'matki',Snacks:'sundal'});
+  assert(replacement(plan,p,0,'Snacks')==='chana-chaat');
+  assert(first(['fruit','makhana'],context({Snacks:'fruit'}))==='fruit');
+});
+test('Generated and swapped grocery totals equal independent ingredient sums',()=>{
+  const plan=generatePlan(defaults);
+  plan[0].meals.Snacks=replacement(plan,defaults,0,'Snacks');
+  for(const people of [1,4,12]){
+    const totals={};
+    for(const day of plan)for(const id of Object.values(day.meals))for(const [key,qty] of Object.entries(dish(id).ingredients))totals[key]=(totals[key]||0)+qty*people;
+    const actual=groceryList(plan,people);
+    assert(actual.length===Object.keys(totals).length);
+    for(const item of actual)assert(Math.abs(item.amount-totals[item.id])<.001,item.id);
+  }
+});
+test('Saved safe low-variety plans restore without reshuffling or lost checkmarks',()=>{
+  const plan=generatePlan(defaults);plan[0].meals.Lunch='matki';plan[0].meals.Snacks='sundal';
+  const saved={version:1,catalogueVersion,prefs:defaults,plan,checked:['chana']};
+  assert(validPlan(plan,defaults));
+  const restored=restoreState(JSON.stringify(saved));
+  assert(JSON.stringify(restored.plan)===JSON.stringify(plan));
+  assert(JSON.stringify(restored.checked)==='["chana"]'&&!restored.recoveryNotice);
 });
 return results;
 }

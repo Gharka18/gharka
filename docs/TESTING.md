@@ -1,5 +1,25 @@
 # Verification — 27 September 2026
 
+## Meal Variety Engine V1 — 28 September 2026
+
+- Chrome `/tests/`, with cache-bypassing reload: **68/68 passed** (52 existing + 16 new). Also passed in the available JavaScript runtime. Node/npm are unavailable, so `npm test` was not run.
+- Chrome `/tests/browser.html`: **18/18 passed** (17 existing + one new same-day chickpea Swap/reload regression), using isolated memory storage.
+- New shared checks cover metadata completeness, same-day dish/major overlap, safe repeated fallback, weekly usage, adjacent families in both directions, minor besan, multiple majors, deterministic/pure ranking, slot order, all hard filters, repeated swaps, independent grocery totals, and restoring safe low-variety saved plans.
+- Inspected all seven generated days for five profiles, with four people and all slots. Results below count conflicts using the reviewed major labels, not every ingredient shared by recipes. This is a manual review of generated data, not a nutrition or home-cook assessment.
+
+| Profile | Filled | Distinct dishes | Same-day major conflicts | Observations |
+|---|---:|---:|---:|---|
+| Default vegetarian, 45 min | 28/28 | 28 | 0 | Monday: besan chilla, aloo gobi, carrot chaat, Bengali dal. |
+| Vegetarian, 30 min | 28/28 | 24 | 0 | Four necessary main-meal repeats; all ten eligible main dishes used. |
+| Gujarati vegetarian, 45 min | 28/28 | 11 | 0 | Oats/thepla alternate; four main dishes recur; Everyday Indian remains eligible. Thepla and dhokla can coexist. |
+| Eggetarian, 45 min | 28/28 | 28 | 0 | Four egg dishes spread across Tuesday, Friday, Saturday and Sunday. |
+| Non-vegetarian, 45 min | 28/28 | 28 | 0 | Chicken/fish Tuesday; chicken pulao Sunday; eggs also allowed. No meat frequency target. |
+
+The chana regression fixture fixes lunch to usal and offers sundal/makhana for snacks: makhana wins every day, even if already used. With sundal as the only eligible snack, both chickpea meals remain rather than leaving a slot empty. Browser coverage swaps a saved conflicting Monday and verifies the rest of the plan survives unchanged.
+
+Limitations: deterministic regeneration repeats the same week; repeated swaps may cycle; greedy ranking can leave adjacent family repeats; no past-week memory or base balancing. Labels require continued editorial review. Existing UI, recipe amounts, eligibility/exclusion code and storage validation were not changed. No real-device, screen-reader or additional browser-engine validation was performed in this task.
+
+
 ## Ingredient exclusion matching — 28 September 2026
 
 - Scope: exact ingredient aliases/families, regression checks and matching documentation only. No recipe, UI, storage, dependency or framework changes.

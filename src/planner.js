@@ -101,18 +101,57 @@ export function eligible(p, slot) {
     && !d.allergens.some(a => excluded.allergens.has(a))
     && !Object.keys(d.ingredients).some(id => excluded.ingredients.has(id)));
 }
-export function generatePlan(p,random=Math.random){
- const counts={};
- return days.map(day=>({day,meals:Object.fromEntries(p.slots.map(slot=>{
- const pool=eligible(p,slot); const min=Math.min(...pool.map(d=>counts[d.id]||0)); const choices=pool.filter(d=>(counts[d.id]||0)===min); const pick=choices[Math.min(choices.length-1,Math.floor(random()*choices.length))];
- if(pick)counts[pick.id]=(counts[pick.id]||0)+1;
- return [slot,pick?.id||null];
- }))}));
+// Only rank already-eligible candidates. No soft preference removes a meal.
+// Ignore the target slot so replacement does not count the departing dish.
+export function rankCandidates(candidates, plan, dayIndex, slot) {
+  const context = plan.flatMap((day, index) => Object.entries(day.meals)
+    .filter(([key]) => index !== dayIndex || key !== slot)
+    .map(([, id]) => ({ index, dish: dishes.find(d => d.id === id) }))
+    .filter(entry => entry.dish));
+  const overlap = (a, b) => a.filter(tag => b.includes(tag)).length;
+  const ranked = candidates.map(dish => {
+    const score = [0, 0, 0, 0, 0];
+    for (const { index, dish: other } of context) {
+      const same = dish.id === other.id;
+      const majors = overlap(dish.variety.majorIngredients, other.variety.majorIngredients);
+      const families = overlap(dish.variety.families, other.variety.families);
+      if (index === dayIndex) {
+        score[0] += Number(same);
+        score[1] += majors;
+      }
+      score[2] += Number(same);
+      if (Math.abs(index - dayIndex) === 1) score[3] += Number(same || families > 0);
+      score[4] += majors + families;
+    }
+    return { dish, score };
+  });
+  ranked.sort((a, b) => {
+    for (let i = 0; i < a.score.length; i++) {
+      if (a.score[i] !== b.score[i]) return a.score[i] - b.score[i];
+    }
+    return a.dish.id < b.dish.id ? -1 : a.dish.id > b.dish.id ? 1 : 0;
+  });
+  return ranked.map(entry => entry.dish);
 }
-export function replacement(plan,p,dayIndex,slot,random=Math.random){
- const current=plan[dayIndex].meals[slot]; const pool=eligible(p,slot).filter(d=>d.id!==current);
- const used=plan.flatMap(day=>Object.values(day.meals)); const fresh=pool.filter(d=>!used.includes(d.id)); const choices=fresh.length?fresh:pool;
- return choices[Math.min(choices.length-1,Math.floor(random()*choices.length))]?.id||null;
+
+export function generatePlan(p) {
+  const pools = Object.fromEntries(p.slots.map(slot => [slot, eligible(p, slot)]));
+  // Most constrained first; canonical order breaks ties independently of input order.
+  const order = [...p.slots].sort((a, b) => pools[a].length - pools[b].length
+    || meals.indexOf(a) - meals.indexOf(b));
+  const plan = days.map(day => ({ day, meals: Object.fromEntries(p.slots.map(slot => [slot, null])) }));
+  for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
+    for (const slot of order) {
+      plan[dayIndex].meals[slot] = rankCandidates(pools[slot], plan, dayIndex, slot)[0]?.id || null;
+    }
+  }
+  return plan;
+}
+
+export function replacement(plan, p, dayIndex, slot) {
+  const current = plan[dayIndex].meals[slot];
+  const pool = eligible(p, slot).filter(d => d.id !== current);
+  return rankCandidates(pool, plan, dayIndex, slot)[0]?.id || null;
 }
 export function groceryList(plan,people){
  const totals={};

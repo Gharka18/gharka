@@ -94,7 +94,7 @@ The following behaviours are implemented, subject to the known limitations below
 - Dietary restrictions and allergies are hard constraints. Generation and replacement must not silently relax them. Current enforcement relies on catalogue tags and recognised ingredient identities; it is not a guarantee about packaged foods or cooking conditions.
 - Vegetarian allows vegetarian dishes; Eggetarian also allows eggs; Non-Vegetarian allows all three classifications. Allowing eggs or meat does not guarantee their inclusion.
 - Cooking-time and cuisine filters apply alongside exclusions. Everyday Indian dishes are included across regional selections.
-- Generation prefers the least-used eligible dishes within the current week, choosing randomly among ties. Replacement prefers unused eligible alternatives. Repetition is allowed when variety is limited.
+- Generation and replacement share deterministic soft variety ranking: same-day exact duplicates, same-day major-ingredient overlap, weekly dish count, adjacent-day family similarity, weekly major/family use, then dish ID. Hard restrictions always win; valid repeated meals are preferred to empty slots. Regenerating unchanged preferences returns the same week. V1 does not balance rice/roti bases.
 - All four slots create 28 positions; fewer selected slots create fewer positions. Empty positions are valid when restrictions leave no eligible dish.
 - Grocery quantities equal per-adult recipe amounts multiplied by household size, summed across the plan. Household size does not directly influence dish selection or cooking times.
 - Saving preferences, generating a week, or successfully replacing a dish resets grocery checkmarks. Saving preferences regenerates the week even if only household size changed.
@@ -113,7 +113,7 @@ There is no analytics instrumentation or recorded user-study baseline. The measu
 | Planning effort and usefulness | Time the task and ask users whether the menu reduces their usual decision effort. Record rejected suggestions and reasons. | Proposed pilot measure; no baseline or target agreed. |
 | Continued use | Ask pilot households whether they use the planner again the following week. | Proposed follow-up measure; no retention data collected. |
 
-[TESTING.md](TESTING.md) records 52 passing logic checks and 17 browser checks, including generation across 150 preference configurations, and the manual checks completed. Passing these checks does not establish production readiness, nutritional balance, or comprehensive allergy safety.
+[TESTING.md](TESTING.md) records 68 passing logic checks and 18 browser checks, including generation across 150 preference configurations, and the manual checks completed. Passing these checks does not establish production readiness, nutritional balance, or comprehensive allergy safety.
 
 ### Known Limitations
 
@@ -124,7 +124,7 @@ There is no analytics instrumentation or recorded user-study baseline. The measu
 - **Limited planning intelligence:** No nutritional, cost, or preparation optimisation. Lunch and dinner share a catalogue; there is no previous-week memory, actual date scheduling, or guaranteed egg/meat frequency. With the current catalogue, a 15-minute limit leaves lunch and dinner empty.
 - **Local persistence only:** One household and week per browser origin. Clearing site data loses it. Invalid menus are rebuilt under valid saved restrictions and stale checkmarks are cleared. Unreadable preferences require confirmation before planning. Catalogue-version changes clear shopping ticks; there is no general historical-data migration system.
 - **Serving assumptions:** Quantities use adult servings and do not account for children, appetite, pantry stock, package sizes, or increased batch cooking time.
-- **Verification gaps:** Real-phone, screen-reader and cross-browser file-save verification remain. Automated browser checks cover swaps, groceries, refresh, empty/error states and five viewport widths. Storage/download failures are simulated. Repetition preference is not directly asserted; some older filter checks can pass on an empty result.
+- **Verification gaps:** Real-phone, screen-reader and cross-browser file-save verification remain. Automated browser checks cover swaps, groceries, refresh, empty/error states and five viewport widths. Storage/download failures are simulated. Variety regression checks cover ranking and fallback; some older filter checks can pass on an empty result. The greedy planner does not guarantee globally optimal variety.
 
 ## Future Roadmap — Not Implemented
 

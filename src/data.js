@@ -1,3 +1,5 @@
+import { varietyByDish } from './variety-data.js';
+
 // Explicit ingredients for each recipe; all amounts are approximate adult servings.
 export const catalogueVersion = 2;
 const raw = {
@@ -62,5 +64,5 @@ const rows = [
 ];
 export const dishes = rows.map(([id,name,slots,cuisine,time,emoji,items,method])=>{
  const quantities = items;
- return {id,name,slots,cuisine,time,emoji,ingredients:quantities,method,diet:items.chicken||items.fish?'Non-Vegetarian':items.egg?'Eggetarian':'Vegetarian',allergens:[...new Set(Object.keys(quantities).flatMap(k=>ingredients[k].allergens))]};
+ return {id,name,slots,cuisine,time,emoji,ingredients:quantities,method,variety:varietyByDish[id],diet:items.chicken||items.fish?'Non-Vegetarian':items.egg?'Eggetarian':'Vegetarian',allergens:[...new Set(Object.keys(quantities).flatMap(k=>ingredients[k].allergens))]};
 });
