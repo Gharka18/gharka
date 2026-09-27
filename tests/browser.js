@@ -162,6 +162,22 @@ async function run() {
       await load(); frame.contentWindow.dispatchEvent(new frame.contentWindow.ErrorEvent('error', { message: 'Test failure' }));
       assert(find('#unexpected-error') && find('[data-view="plan"]'), 'No recoverable runtime error message');
     });
+    await test('Chickpea exclusion survives form save, swaps, groceries and reload', async () => {
+      await load(); click('[data-view="preferences"]');
+      find('#otherAllergies').value = 'chickpeas'; click('button[type="submit"]');
+      const forbidden = ['chole', 'matki', 'chana-chaat', 'sundal', 'besan-chilla', 'thepla', 'pitla', 'dhokla'];
+      const check = () => {
+        assert(stored().prefs.otherAllergies === 'chickpeas', 'Restriction was not saved');
+        assert(documentInFrame().querySelectorAll('[data-dish]').length === 28, 'Valid meals unnecessarily removed');
+        for (const id of forbidden) assert(!find(`[data-dish="${id}"]`), `Excluded dish shown: ${id}`);
+      };
+      check();
+      for (let i = 0; i < 8; i++) { click('[data-day="0"][data-slot="Breakfast"]'); check(); }
+      click('[data-view="groceries"]');
+      assert(!find('[data-grocery="chana"]') && !find('[data-grocery="besan"]'), 'Excluded ingredients in groceries');
+      assert(find('[data-grocery]'), 'Grocery list unexpectedly empty');
+      await load(memory.value); check();
+    });
     for (const width of [320, 375, 390, 768, 1200]) {
       await test(`Plan, preferences, groceries and dialog fit a ${width}px viewport`, async () => {
         await load(JSON.stringify(fixture()), width);

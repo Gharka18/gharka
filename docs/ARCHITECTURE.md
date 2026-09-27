@@ -106,7 +106,7 @@ The main functions are in [src/planner.js](../src/planner.js).
 - No allergen tag matching a selected allergy.
 - No recognised excluded ingredient, allergen, or exact dish name.
 
-`exclusionTerms()` normalises and separates input. `resolveExclusions()` resolves recognised ingredient names, common plurals, aliases such as `aloo`, allergen labels, and exact dish names into identities. It does not search words inside descriptive labels such as “non-peanut”. Unknown terms block new preference saves with a clarification message; the planner returns no suggestions if unresolved restrictions reach it, including from saved data. Matching is a limited dictionary lookup, not natural-language understanding.
+`exclusionTerms()` normalises and separates input. `resolveExclusions()` resolves recognised ingredient names, common plurals, aliases such as `aloo`, allergen labels, and exact dish names into identities. It does not search words inside descriptive labels such as “non-peanut”. Unknown terms block new preference saves with a clarification message; the planner returns no suggestions if unresolved restrictions reach it, including from saved data. Matching is a limited dictionary lookup, not natural-language understanding. Explicit `ingredientAliasGroups` link chickpea/chana/besan names and supported flour names to both `chana` and `besan`, conservatively in both free-text fields. Separate exact groups cover mung/green gram, arhar/pigeon pea, red lentil, kidney bean, urad/black gram in batter, and suji/sooji. Bare “gram”, “dal” and “flour” remain unknown; exact dish exclusions retain their existing meaning.
 
 ### Build a week
 
@@ -199,9 +199,9 @@ flowchart TD
 
 With the server running, open `http://127.0.0.1:5173/tests/`. Alternatively, use `npm test` when Node/npm are installed. The Node adapter uses built-in `node:test` and `node:assert/strict`; no test package is required.
 
-The 44 shared checks cover filters and dietary regressions, generation across 150 constructed household configurations, swaps, explicit recipe ingredients, grocery arithmetic, household scaling, display precision, empty plans, preference validation, saved-state restoration, catalogue updates and failed storage. `generatePlan()` and `replacement()` accept a random-number function for predictable tests.
+The 52 shared checks cover filters and dietary regressions, generation across 150 constructed household configurations, swaps, explicit recipe ingredients, grocery arithmetic, household scaling, display precision, empty plans, preference validation, saved-state restoration, catalogue updates and failed storage. `generatePlan()` and `replacement()` accept a random-number function for predictable tests.
 
-Open `/tests/browser.html` and select **Run browser checks** for 16 additional automated checks. The runner loads the actual application into an iframe and substitutes in-memory storage, protecting the user's saved household. It exercises swaps, checklist updates, reload, dialogs, invalid forms, empty states, corrupt records, blocked/quota storage, download content/failure, runtime-error feedback and layouts at 320, 375, 390, 768 and 1200 pixels.
+Open `/tests/browser.html` and select **Run browser checks** for 17 additional automated checks. The runner loads the actual application into an iframe and substitutes in-memory storage, protecting the user's saved household. It exercises swaps, checklist updates, reload, dialogs, invalid forms, empty states, corrupt records, blocked/quota storage, download content/failure, runtime-error feedback and layouts at 320, 375, 390, 768 and 1200 pixels.
 
 Download checks intercept the browser API to verify the generated file content; they do not prove that every operating system saves the file correctly. Viewport checks do not replace real-phone or screen-reader testing. Tests do not establish recipe accuracy, nutritional balance or comprehensive allergy safety. See [TESTING.md](TESTING.md) for evidence and remaining checks.
 

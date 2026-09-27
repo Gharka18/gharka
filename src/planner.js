@@ -14,9 +14,23 @@ const aliases = {
   'curry leaf': ['curry'], 'curry leaves': ['curry'],
   'sesame seed': ['sesame'], 'mustard seed': ['mustard'],
   yogurt: ['curd'], yoghurt: ['curd'], semolina: ['rava'],
-  chickpea: ['chana'], 'soy chunk': ['soy'], 'soya chunk': ['soy'],
+  'soy chunk': ['soy'], 'soya chunk': ['soy'],
   'idli batter': ['batter'], 'dosa batter': ['batter']
 };
+// Explicit food families, not word fragments. Chickpea flour exclusions are
+// conservative in both free-text fields: all listed chickpea forms are excluded.
+// Other entries name a specific catalogue ingredient (or a known batter component).
+const ingredientAliasGroups = [
+  { ids: ['chana', 'besan'], names: ['chana', 'besan', 'chickpea', 'kabuli chana',
+    'garbanzo bean', 'chickpea flour', 'gram flour', 'besan flour', 'chana dal',
+    'bengal gram', 'चना', 'बेसन'] },
+  { ids: ['moong'], names: ['mung', 'mung bean', 'mung dal', 'green gram'] },
+  { ids: ['toor'], names: ['arhar', 'arhar dal', 'tuvar', 'tuvar dal', 'pigeon pea'] },
+  { ids: ['masoor'], names: ['red lentil'] },
+  { ids: ['rajma'], names: ['kidney bean'] },
+  { ids: ['batter'], names: ['urad', 'urad dal', 'black gram'] },
+  { ids: ['rava'], names: ['suji', 'sooji', 'सूजी'] }
+];
 const normaliseTerm = value => value.normalize('NFKC').toLowerCase()
   .replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
 const exclusionIndex = new Map();
@@ -42,6 +56,9 @@ for (const ingredient of Object.values(ingredients)) {
   name.split('/').forEach(part => registerExclusion(part, 'ingredients', [ingredient.id]));
 }
 for (const [name, ids] of Object.entries(aliases)) registerExclusion(name, 'ingredients', ids);
+for (const { names, ids } of ingredientAliasGroups) {
+  for (const name of names) registerExclusion(name, 'ingredients', ids);
+}
 for (const allergen of allergens) registerExclusion(allergen, 'allergens', [allergen]);
 for (const dish of dishes) {
   registerExclusion(dish.id, 'dishes', [dish.id]);

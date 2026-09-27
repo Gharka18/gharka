@@ -220,5 +220,90 @@ test('Unresolved saved exclusions remain blocked during recovery',()=>{
   assert(state.prefs.otherAllergies==='unknown-food');
   assert(planSummary(state.plan).planned===0&&state.checked.length===0);
 });
+test('Chickpea and chana exclusions cover whole chickpeas and besan',()=>{
+  for(const field of ['dislikes','otherAllergies'])for(const term of ['chickpea','chickpeas','chana','kabuli chana','garbanzo bean','garbanzo beans']){
+    const p={...defaults,[field]:term};
+    assert(resolveExclusions(p).unknown.length===0,term);
+    for(const slot of meals){
+      const actual=eligible(p,slot).map(d=>d.id);
+      const expected=eligible(defaults,slot).filter(d=>!d.ingredients.chana&&!d.ingredients.besan).map(d=>d.id);
+      assert(JSON.stringify(actual)===JSON.stringify(expected),`${field}: ${term} / ${slot}`);
+    }
+  }
+});
+test('Besan and flour aliases conservatively exclude the chickpea family',()=>{
+  for(const field of ['dislikes','otherAllergies'])for(const term of ['besan','chickpea flour','gram flour','chana dal','bengal gram','besan flour']){
+    const p={...defaults,[field]:term},resolved=resolveExclusions(p);
+    assert(resolved.unknown.length===0&&resolved.ingredients.has('chana')&&resolved.ingredients.has('besan'),term);
+    for(const slot of meals)assert(eligible(p,slot).every(d=>!d.ingredients.chana&&!d.ingredients.besan));
+    assert(eligible(p,'Lunch').some(d=>d.id==='dal-rice'));
+  }
+});
+test('Chickpea aliases normalize case separators whitespace and Hindi spellings',()=>{
+  for(const term of ['  CHICKPEA-FLOUR  ','chickpea_flour','gram   flour','चना','बेसन','chickpeas;\n बेसन']){
+    const result=resolveExclusions({...defaults,otherAllergies:term});
+    assert(result.unknown.length===0&&result.ingredients.has('chana')&&result.ingredients.has('besan'),term);
+    assert(result.ingredients.size===2,term);
+  }
+});
+test('Named pulse aliases exclude only their explicit catalogue ingredients',()=>{
+  const cases=[['mung bean','moong'],['mung dal','moong'],['green gram','moong'],['arhar dal','toor'],['tuvar dal','toor'],['pigeon peas','toor'],['red lentils','masoor'],['kidney beans','rajma'],['urad dal','batter'],['black gram','batter']];
+  for(const field of ['dislikes','otherAllergies'])for(const [term,id] of cases){
+    const p={...defaults,[field]:term},result=resolveExclusions(p);
+    assert(result.unknown.length===0&&result.ingredients.size===1&&result.ingredients.has(id),term);
+    for(const slot of meals){
+      const expected=eligible(defaults,slot).filter(d=>!d.ingredients[id]).map(d=>d.id);
+      assert(JSON.stringify(eligible(p,slot).map(d=>d.id))===JSON.stringify(expected),term);
+    }
+  }
+});
+test('Suji and sooji resolve to semolina without excluding unrelated grains',()=>{
+  for(const term of ['suji','sooji','सूजी']){
+    const p={...defaults,otherAllergies:term};
+    assert(resolveExclusions(p).unknown.length===0);
+    assert(!eligible(p,'Breakfast').some(d=>d.id==='upma'));
+    assert(eligible(p,'Breakfast').some(d=>d.id==='besan-chilla'));
+    assert(eligible(p,'Breakfast').some(d=>d.id==='vermicelli'));
+  }
+});
+test('Ingredient families do not use substrings or reinterpret exact dish names',()=>{
+  for(const term of ['gram','dal','flour','chickpea-free','not chickpeas','gramophone']){
+    const p={...defaults,otherAllergies:term};
+    assert(resolveExclusions(p).unknown.length===1,term);
+    assert(eligible(p,'Lunch').length===0,term);
+  }
+  const p={...defaults,dislikes:'Chana chaat'};
+  assert(!eligible(p,'Snacks').some(d=>d.id==='chana-chaat'));
+  assert(eligible(p,'Snacks').some(d=>d.id==='sundal'));
+  assert(eligible(p,'Breakfast').some(d=>d.id==='besan-chilla'));
+});
+test('Chickpea restrictions survive generation repeated swaps and combined diets',()=>{
+  for(const diet of ['Vegetarian','Eggetarian','Non-Vegetarian'])for(const term of ['chickpeas','chana','besan']){
+    const p={...defaults,diet,otherAllergies:term,allergies:['Dairy','Peanuts']};
+    const plan=generatePlan(p,()=>0);
+    const check=id=>{
+      const d=dishes.find(d=>d.id===id);assert(d,'Expected a matching meal');
+      assert(!d.ingredients.chana&&!d.ingredients.besan);
+      assert(!d.allergens.includes('Dairy')&&!d.allergens.includes('Peanuts'));
+      if(diet==='Vegetarian')assert(d.diet==='Vegetarian');
+      if(diet==='Eggetarian')assert(d.diet!=='Non-Vegetarian');
+    };
+    plan.forEach(day=>Object.values(day.meals).forEach(check));
+    for(let n=0;n<28;n++){
+      const day=n%7,slot=meals[n%4],id=replacement(plan,p,day,slot,()=>.5);
+      assert(id&&id!==plan[day].meals[slot]);check(id);plan[day].meals[slot]=id;
+    }
+    assert(groceryList(plan,p.people).every(i=>!['chana','besan'].includes(i.id)));
+  }
+});
+test('Saved chickpea exclusions invalidate previously allowed besan meals',()=>{
+  const saved=storedFixture();saved.prefs.otherAllergies='chickpeas';
+  saved.plan[0].meals.Breakfast='besan-chilla';saved.checked=['besan'];
+  assert(!validPlan(saved.plan,saved.prefs));
+  const state=restoreState(JSON.stringify(saved),()=>0);
+  assert(state.prefs.otherAllergies==='chickpeas'&&state.checked.length===0);
+  assert(planSummary(state.plan).planned===28);
+  assert(groceryList(state.plan,4).every(i=>!['chana','besan'].includes(i.id)));
+});
 return results;
 }

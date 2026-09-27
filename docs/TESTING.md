@@ -1,5 +1,16 @@
 # Verification — 27 September 2026
 
+## Ingredient exclusion matching — 28 September 2026
+
+- Scope: exact ingredient aliases/families, regression checks and matching documentation only. No recipe, UI, storage, dependency or framework changes.
+- Chickpea, chana, besan and supported flour names now exclude both `chana` and `besan` in dislikes and other ingredient exclusions. This deliberately treats even flour-specific input conservatively. Added exact aliases for mung/green gram, arhar/pigeon pea, red lentil, kidney bean, urad/black gram in batter, and suji/sooji.
+- Added eight shared checks: chickpea/chana family; besan/flour family; case/spacing/separators/Hindi names; named pulses; suji/sooji; substring/ambiguous-name rejection and exact-dish preservation; generation/repeated swaps with combined restrictions; saved-plan revalidation.
+- Before changing the matcher, seven new checks failed and one passed; all original 44 passed (45/52 total). After the fix, **52/52 passed** in the JavaScript runtime and Chrome at `/tests/` after a cache-bypassing reload.
+- Added one browser regression covering chickpea form submission, eight breakfast swaps, grocery exclusion and reload. **17/17 browser checks passed** in Chrome at `/tests/browser.html`, including all previous 16 checks. Test storage remains isolated from the user's household.
+- Node/npm remain unavailable; the browser runner executes the same shared suite as the optional Node adapter.
+- Risks: the dictionary is finite, compounds require explicit ingredient knowledge, and generic “gram”, “dal” or “flour” are not inferred. Packaged-food composition and cross-contact are not validated. Exact dish IDs/names still exclude dishes rather than automatically excluding ingredient families; the legacy `matki` dish ID names a chickpea recipe, not a generic moth-bean ingredient.
+- Other QA findings, including stale-tab overwrites and focus/draft handling, are outside this change and remain unresolved. Real-device and screen-reader verification is still pending.
+
 ## Remaining P0 items — Groceries, replacement, mobile and recovery
 
 ### Implemented
