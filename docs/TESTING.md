@@ -1,0 +1,74 @@
+# Verification — 27 September 2026
+
+## Remaining P0 items — Groceries, replacement, mobile and recovery
+
+### Implemented
+
+- Replaced the automatic seasoning bundle with explicit ingredients for all 46 dishes. Fixed kilogram/litre display precision; 1005 g now displays as 1.005 kg.
+- Verified that a swap changes one slot, updates groceries and saved state, and resets shopping ticks. If no alternative exists, the existing meal and ticks remain with clear feedback.
+- Added readable mobile navigation labels, 44-pixel swap/close controls, wrapping meal cards and grocery rows, and scrollable dialogs.
+- Added accurate incomplete-plan counts, specific no-match explanations, disabled empty downloads, download-error feedback and recoverable runtime-error messages.
+- Added `src/state.js` for saved-data validation and recovery. Invalid menus retain valid restrictions but clear stale ticks; unreadable preferences require confirmation. Storage failures show warnings and a retry option. Catalogue-version changes invalidate shopping ticks once.
+- Scope remained P0. No P1/P2 features or dependencies were added.
+
+### Automated results
+
+- **44/44 shared logic checks passed in Safari** at `/tests/`, including all previous dietary regression checks and 15 new quantity, replacement, empty-state and storage checks.
+- **16/16 browser checks passed in Safari** at `/tests/browser.html`. These exercise the real application in an iframe with isolated in-memory storage, leaving the user's saved household unchanged.
+- Browser coverage: scaled recipe details; swap isolation and grocery refresh; persisted swap/reload; no-alternative preservation; empty/partial plans; invalid forms; corrupt saved data; invalid-menu recovery; blocked storage and quota failures; save retry; generated download content and failed download; runtime-error feedback.
+- Layout checks cover plan, preferences, groceries and recipe dialogs at **320, 375, 390, 768 and 1200 pixels**, asserting no horizontal overflow/clipped controls, readable navigation labels and mobile swap target size.
+- A first browser run exposed a test-frame load timing issue. Frame initialization was corrected; the final complete run passed all 16 checks.
+- Node/npm are not installed, so `npm test` was not run. The shared suite ran through its browser runner instead.
+
+### How to repeat
+
+Start the server using the command in README. Open `/tests/` for logic checks. Open `/tests/browser.html` and click **Run browser checks** for interactions. Keep the test tab active until the final count appears. If Safari retains older modules, reload with Command+Option+R.
+
+For a manual walkthrough: swap a dish and inspect groceries; set a 15-minute limit and inspect empty lunch/dinner slots; refresh and confirm the week remains saved; narrow the browser and try all three screens.
+
+### Limits of verification
+
+Viewport checks are simulated sizes in desktop Safari, not physical Android/iPhone testing. Screen-reader and broader cross-browser verification remain. Storage failures are injected; download checks capture file content and simulate API failure without testing the operating system's file-save flow. Recipe quantities remain approximate adult servings and need home-cook review. These results do not imply production readiness or comprehensive allergy safety.
+
+## P0 item 1 — Dietary restriction matching
+
+- Scope: ingredient/allergen exclusion resolution, the necessary clarification messages, and regression tests only. No recipe quantities, grocery algorithms, replacement strategy, mobile layout, or unrelated error-handling changes.
+- Replaced substring matching with recognised ingredient identities, common plurals, aliases, allergen labels, and exact dish names.
+- Unknown exclusions block saving new preferences; saved unresolved exclusions pause suggestions until clarified. Food-label and catalogue-completeness limitations still apply.
+- Added 12 regression checks. Before the fix, seven of the first eight new checks failed; after implementation, all 29 checks pass in the JavaScript runtime and in Safari at `/tests/`.
+- Checks cover peanut/groundnut false exclusions, onions/tomatoes/potatoes, case and separators, unknown restrictions, dairy/wheat/rice ingredient families, peas versus peanuts, generation and replacements with combined restrictions, every catalogue ingredient ID, and exact dish dislikes.
+- Manually verified in Safari that an unknown exclusion displays a clarification message and does not save changes; refreshing retains the original saved plan.
+- Node/npm are unavailable in this environment, so `npm test` was not run. The browser runner executed the shared automated suite instead.
+- The saved-unknown banner path is supported by planner tests and code inspection; direct browser injection of malformed saved data was not tested. No broader mobile, download, or production-safety verification is claimed.
+
+## Initial MVP verification
+
+### Completed
+
+- Local HTTP server responds with HTTP 200.
+- 17/17 automated checks pass in Safari using `/tests/` (also independently executed in the available JavaScript runtime).
+- Randomized tests cover 150 preference combinations.
+- Verified a seven-day, 28-meal default vegetarian plan in Safari.
+- Verified replacing Monday breakfast changes that dish and refreshes groceries.
+- Verified grocery categories, quantities and checkbox progress.
+- Verified saving two people with the Dairy filter produces a 28-meal plan without dairy dishes.
+- Verified the same household and plan survive a page reload.
+- Verified dish details show scaled ingredients, cooking notes and allergens.
+- Visually inspected the desktop layout in Safari.
+- Fixed early rounding of fractional ingredients; quantities now scale before display formatting.
+
+### Remaining manual checks before a public pilot
+
+- Test on real Android and iPhone screens and with a screen reader.
+- Confirm grocery text downloads in each target browser.
+- Check storage-disabled and storage-quota conditions on target devices.
+- Have an Indian home cook review recipe details, portions, times and allergens.
+
+### Useful edge cases to try
+
+- 15-minute cooking limit: unavailable meal slots explain that no dish matches.
+- Uncheck every meal: form asks for at least one meal.
+- One person versus four: grocery quantities scale proportionately.
+- Dairy + Gluten + Peanuts exclusions: eligible dishes must avoid all three.
+- Dislike “aloo” or “palak”: potato or spinach dishes are excluded.
+- Swap with no other eligible dish: existing meal remains and a message explains why.
