@@ -2,6 +2,7 @@ import { catalogueVersion } from './data.js';
 import { defaults, days, validPreferences, eligible, generatePlan, groceryList, resolveExclusions } from './planner.js';
 
 export const storageKey = 'gharka-v1';
+export const householdStorageKey = userId => userId ? `${storageKey}:user:${encodeURIComponent(userId)}` : storageKey;
 const blankPlan = p => days.map(day => ({ day, meals: Object.fromEntries(p.slots.map(slot => [slot, null])) }));
 
 export function validPlan(plan, prefs) {
@@ -21,8 +22,7 @@ function confirmationState(message, storageWarning = '') {
 
 export function restoreState(raw, random = Math.random) {
   if (raw === null) {
-    const prefs = structuredClone(defaults);
-    return { prefs, plan: generatePlan(prefs, random), checked: [], needsPreferences: false, recoveryNotice: '', storageWarning: '' };
+    return confirmationState('');
   }
   let saved;
   try { saved = JSON.parse(raw); } catch {

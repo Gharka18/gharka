@@ -1,5 +1,16 @@
 # Verification — 27 September 2026
 
+## Guided setup, ingredients at home and optional email sign-in — 28 September 2026
+
+- Shared suite: **73/73 passed** in Safari and the available JavaScript runtime (68 prior checks, with the save-failure fixture updated to an existing confirmed household, plus five new checks).
+- Browser suite: **29/29 passed** in Safari (18 existing plus seven new checks). Existing recovery assertions now expect the preference-first screen. Viewport checks also open the pantry and sign-in dialog at 320, 375, 390, 768 and 1200 pixels.
+- New coverage: no first-use plan/write before confirmation; legacy preference compatibility; pantry validation/tie-breaking and hard restrictions; unchanged grocery arithmetic; separate guest/account storage keys; new-week review without early replacement; grocery/download stock labels; guest access; provider configuration, email-link redirects, sessions, logout and provider failures through an injected fake provider.
+- Manually inspected the first-use setup screen on a separate localhost origin without changing the saved 127.0.0.1 household. The sign-in button is visible and setup precedes all meals.
+- The pinned Supabase JS CDN endpoint returned HTTP 200 with JavaScript content and cross-origin permission. This checks availability only, not a live authentication session.
+- Live email delivery, SMTP, real magic-link callbacks, expiry/resend behaviour and real account-switch persistence are **not verified**: the owner must create/configure the Supabase project. `auth-config.js` remains blank; email login is explicitly unavailable until configured, while guests work. See `SIGN_IN_SETUP.md`.
+- No Node/npm runner, real-phone or screen-reader checks were performed. No commit or deployment was made in this change.
+
+
 ## Meal Variety Engine V1 — 28 September 2026
 
 - Chrome `/tests/`, with cache-bypassing reload: **68/68 passed** (52 existing + 16 new). Also passed in the available JavaScript runtime. Node/npm are unavailable, so `npm test` was not run.
@@ -103,3 +114,9 @@ Viewport checks are simulated sizes in desktop Safari, not physical Android/iPho
 - Dairy + Gluten + Peanuts exclusions: eligible dishes must avoid all three.
 - Dislike “aloo” or “palak”: potato or spinach dishes are excluded.
 - Swap with no other eligible dish: existing meal remains and a message explains why.
+
+## Household editing and guided interface — 2026-09-28
+
+Safari verification: **73/73 shared logic/storage checks** and **29/29 browser checks passed**. `git diff --check` passed. Four added browser regressions cover household scaling with unchanged meals and reload persistence; cancellation, unchanged saves and invalid sizes; three-step validation/draft preservation; and mobile day selection. Existing viewport checks now inspect all three steps and the household dialog at 320, 375, 390, 768 and 1200 pixels. The pantry test also verifies separate stock headings.
+
+Manually reviewed the desktop setup and 390px household dialog, including keyboard Escape dismissal. No actual phone or screen-reader audit was performed. Node/npm are unavailable, so the shared suite was run through its browser runner. Live email sign-in remains untested and unconfigured; provider tests use a fake service. Existing pre-task sign-in and pantry changes remain uncommitted alongside these interface changes. Nothing was committed, pushed or deployed.

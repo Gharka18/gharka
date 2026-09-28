@@ -1,5 +1,5 @@
 import { dishes, ingredients, meals, allergens, cuisines } from './data.js';
-export const defaults = {diet:'Vegetarian',people:4,slots:[...meals],cuisines:[],dislikes:'',allergies:[],otherAllergies:'',time:45};
+export const defaults = {diet:'Vegetarian',people:4,slots:[...meals],cuisines:[],dislikes:'',allergies:[],otherAllergies:'',time:45,pantry:[]};
 export const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 // Match recognised ingredient identities, never words inside descriptive labels.
 const aliases = {
@@ -103,14 +103,14 @@ export function eligible(p, slot) {
 }
 // Only rank already-eligible candidates. No soft preference removes a meal.
 // Ignore the target slot so replacement does not count the departing dish.
-export function rankCandidates(candidates, plan, dayIndex, slot) {
+export function rankCandidates(candidates, plan, dayIndex, slot, pantry = []) {
   const context = plan.flatMap((day, index) => Object.entries(day.meals)
     .filter(([key]) => index !== dayIndex || key !== slot)
     .map(([, id]) => ({ index, dish: dishes.find(d => d.id === id) }))
     .filter(entry => entry.dish));
   const overlap = (a, b) => a.filter(tag => b.includes(tag)).length;
   const ranked = candidates.map(dish => {
-    const score = [0, 0, 0, 0, 0];
+    const score = [0, 0, 0, 0, 0, -Object.keys(dish.ingredients).filter(id => pantry.includes(id)).length];
     for (const { index, dish: other } of context) {
       const same = dish.id === other.id;
       const majors = overlap(dish.variety.majorIngredients, other.variety.majorIngredients);
@@ -142,7 +142,7 @@ export function generatePlan(p) {
   const plan = days.map(day => ({ day, meals: Object.fromEntries(p.slots.map(slot => [slot, null])) }));
   for (let dayIndex = 0; dayIndex < days.length; dayIndex++) {
     for (const slot of order) {
-      plan[dayIndex].meals[slot] = rankCandidates(pools[slot], plan, dayIndex, slot)[0]?.id || null;
+      plan[dayIndex].meals[slot] = rankCandidates(pools[slot], plan, dayIndex, slot, p.pantry)[0]?.id || null;
     }
   }
   return plan;
@@ -151,7 +151,7 @@ export function generatePlan(p) {
 export function replacement(plan, p, dayIndex, slot) {
   const current = plan[dayIndex].meals[slot];
   const pool = eligible(p, slot).filter(d => d.id !== current);
-  return rankCandidates(pool, plan, dayIndex, slot)[0]?.id || null;
+  return rankCandidates(pool, plan, dayIndex, slot, p.pantry)[0]?.id || null;
 }
 export function groceryList(plan,people){
  const totals={};
@@ -170,6 +170,9 @@ export function validPreferences(p) {
     && Array.isArray(p.cuisines) && p.cuisines.every(x => cuisines.includes(x))
     && Array.isArray(p.allergies) && p.allergies.every(x => allergens.includes(x))
     && typeof p.dislikes === 'string' && typeof p.otherAllergies === 'string'
+    && (p.pantry === undefined || (Array.isArray(p.pantry)
+      && p.pantry.every(id => typeof id === 'string' && Object.hasOwn(ingredients, id))
+      && new Set(p.pantry).size === p.pantry.length))
     && [15, 30, 45, 60].includes(p.time));
 }
 

@@ -1,5 +1,5 @@
 import { varietyByDish } from '../src/variety-data.js';
-import {restoreState,loadState,saveState,validPlan,storageKey} from '../src/state.js';
+import {restoreState,loadState,saveState,validPlan,storageKey,householdStorageKey} from '../src/state.js';
 import {dishes,ingredients,meals,allergens,cuisines,catalogueVersion} from '../src/data.js';
 import {defaults,generatePlan,rankCandidates,eligible,replacement,groceryList,formatAmount,validPreferences,resolveExclusions,planSummary,emptyMealReason} from '../src/planner.js';
 export function runSuite(){
@@ -198,7 +198,7 @@ test('Unavailable storage keeps the page usable without assuming saved restricti
   assert(state.needsPreferences&&state.storageWarning&&state.checked.length===0);
 });
 test('Write failures return a warning and do not mutate the live state',()=>{
-  const state=restoreState(null),before=JSON.stringify(state);
+  const state=restoreState(JSON.stringify(storedFixture())),before=JSON.stringify(state);
   assert(saveState(()=>{throw new Error('quota');},state).includes('could not be saved'));
   assert(JSON.stringify(state)===before);
   let record;assert(saveState((key,value)=>{assert(key===storageKey);record=JSON.parse(value);},state)==='');
@@ -436,6 +436,44 @@ test('Saved safe low-variety plans restore without reshuffling or lost checkmark
   const restored=restoreState(JSON.stringify(saved));
   assert(JSON.stringify(restored.plan)===JSON.stringify(plan));
   assert(JSON.stringify(restored.checked)==='["chana"]'&&!restored.recoveryNotice);
+});
+test('First visit requires preferences and never creates or saves a default plan',()=>{
+  const state=restoreState(null);
+  assert(state.needsPreferences&&planSummary(state.plan).planned===0);
+  let writes=0;saveState(()=>writes++,state);assert(writes===0);
+});
+test('Pantry defaults remain compatible with older saved preferences',()=>{
+  const saved=storedFixture();delete saved.prefs.pantry;
+  assert(validPreferences(saved.prefs));
+  assert(JSON.stringify(restoreState(JSON.stringify(saved)).plan)===JSON.stringify(saved.plan));
+  const p={...defaults,pantry:['paneer','rice']};
+  assert(validPreferences(p));
+  for(const pantry of [null,'rice',['unknown'],['rice','rice'],['__proto__']])assert(!validPreferences({...defaults,pantry}));
+});
+test('Pantry breaks variety ties without changing hard eligibility',()=>{
+  const candidates=[dish('chole'),dish('rajma')];
+  assert(rankCandidates(candidates,[],0,'Lunch',['rajma'])[0].id==='rajma');
+  assert(rankCandidates(candidates,[],0,'Lunch',['chana'])[0].id==='chole');
+  const p={...defaults,pantry:['chicken','egg','paneer','chana'],allergies:['Dairy'],otherAllergies:'chickpea'};
+  for(const slot of meals)assert(JSON.stringify(eligible(p,slot))===JSON.stringify(eligible({...p,pantry:[]},slot)));
+  const plan=generatePlan(p);
+  assert(planSummary(plan).planned===28);
+  for(let day=0;day<7;day++)for(const slot of meals){
+    for(const id of [plan[day].meals[slot],replacement(plan,p,day,slot)].filter(Boolean)){
+      const d=dish(id);assert(d.diet==='Vegetarian'&&!d.allergens.includes('Dairy')&&!d.ingredients.chana&&!d.ingredients.besan);
+    }
+  }
+});
+test('Pantry does not outweigh same-day variety or subtract unknown stock quantities',()=>{
+  const p={...defaults,pantry:['chana']};
+  assert(rankCandidates([dish('sundal'),dish('makhana')],context({Lunch:'matki'}),0,'Snacks',p.pantry)[0].id==='makhana');
+  const list=groceryList(context({Lunch:'matki'}),4);
+  assert(list.find(i=>i.id==='chana').amount===260);
+});
+test('Guest and account household storage keys are distinct',()=>{
+  assert(householdStorageKey(null)===storageKey);
+  assert(householdStorageKey('one')!==householdStorageKey('two'));
+  assert(householdStorageKey('one')!==storageKey);
 });
 return results;
 }

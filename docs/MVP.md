@@ -47,13 +47,13 @@ The app creates a Monday–Sunday plan, supports individual dish replacement and
 
 Preferences, the current plan, and grocery checkmarks are saved in this browser when storage is available. Responsive layouts are checked at five browser viewport widths; real-device usability and accessibility verification remain incomplete. Save failures show a retry option, incomplete plans show accurate counts, and empty grocery lists disable downloading.
 
-**Defaults:** Vegetarian, four people, all four slots, all cuisines, no exclusions, and up to 45 minutes per meal. A first-time visitor sees an automatically generated default week.
+**Defaults:** Vegetarian, four people, all four slots, all cuisines, no exclusions, and up to 45 minutes per meal. Defaults prefill the setup form. A first-time visitor must confirm preferences and optional ingredients at home before any meals are generated.
 
 ### Out of Scope
 
 The current MVP does not include:
 
-- Accounts, cloud backups, household sharing, cross-device sync, or multiple saved weeks.
+- Cloud backups, household sharing, cross-device sync, or multiple saved weeks. Email-link sign-in has an integration and guest fallback, but live login is pending provider configuration.
 - AI-generated recipes, learning from swaps, or personalised nutrition advice.
 - Calories, nutritional balancing, medical diet plans, budgets, or grocery prices.
 - Pantry subtraction, leftovers, seasonal availability, or retailer ordering.
@@ -64,8 +64,8 @@ The current MVP does not include:
 
 ### Primary User Journey
 
-1. Open the app and see the saved week, or the default week on first use.
-2. Open **My preferences**, select household choices, and choose **Save & create my week**. This replaces the current week and clears grocery checkmarks.
+1. Open the app and see the saved week, or household setup on first use. Sign in optionally, or continue as a guest.
+2. Review household preferences and select ingredients already at home, and choose **Save & create my week**. This replaces the current week and clears grocery checkmarks.
 3. Review the selected meal slots across seven days. Click a dish to see ingredients scaled for the household and cooking notes.
 4. Use **↻** to replace one dish. Other meal positions remain unchanged; grocery quantities update and all shopping checkmarks reset.
 5. Open **Grocery list**, review grouped quantities, check items already purchased, and optionally download the text file.
@@ -94,10 +94,10 @@ The following behaviours are implemented, subject to the known limitations below
 - Dietary restrictions and allergies are hard constraints. Generation and replacement must not silently relax them. Current enforcement relies on catalogue tags and recognised ingredient identities; it is not a guarantee about packaged foods or cooking conditions.
 - Vegetarian allows vegetarian dishes; Eggetarian also allows eggs; Non-Vegetarian allows all three classifications. Allowing eggs or meat does not guarantee their inclusion.
 - Cooking-time and cuisine filters apply alongside exclusions. Everyday Indian dishes are included across regional selections.
-- Generation and replacement share deterministic soft variety ranking: same-day exact duplicates, same-day major-ingredient overlap, weekly dish count, adjacent-day family similarity, weekly major/family use, then dish ID. Hard restrictions always win; valid repeated meals are preferred to empty slots. Regenerating unchanged preferences returns the same week. V1 does not balance rice/roti bases.
+- Generation and replacement share deterministic soft variety ranking: same-day exact duplicates, same-day major-ingredient overlap, weekly dish count, adjacent-day family similarity, weekly major/family use, then available-ingredient matches, then dish ID. Hard restrictions always win; valid repeated meals are preferred to empty slots. Regenerating unchanged preferences returns the same week. V1 does not balance rice/roti bases.
 - All four slots create 28 positions; fewer selected slots create fewer positions. Empty positions are valid when restrictions leave no eligible dish.
 - Grocery quantities equal per-adult recipe amounts multiplied by household size, summed across the plan. Household size does not directly influence dish selection or cooking times.
-- Saving preferences, generating a week, or successfully replacing a dish resets grocery checkmarks. Saving preferences regenerates the week even if only household size changed.
+- Saving preferences, generating a week, or successfully replacing a dish resets grocery checkmarks. Saving preferences regenerates the week even if only household size changed. “Plan a new week” first opens the preference form; opening it does not overwrite the saved week.
 - Existing working functionality must be preserved when adding features. Prefer simple solutions and explain major architecture changes before implementation.
 
 ### Success Metrics
@@ -113,7 +113,7 @@ There is no analytics instrumentation or recorded user-study baseline. The measu
 | Planning effort and usefulness | Time the task and ask users whether the menu reduces their usual decision effort. Record rejected suggestions and reasons. | Proposed pilot measure; no baseline or target agreed. |
 | Continued use | Ask pilot households whether they use the planner again the following week. | Proposed follow-up measure; no retention data collected. |
 
-[TESTING.md](TESTING.md) records 68 passing logic checks and 18 browser checks, including generation across 150 preference configurations, and the manual checks completed. Passing these checks does not establish production readiness, nutritional balance, or comprehensive allergy safety.
+[TESTING.md](TESTING.md) records 73 passing logic checks and 29 browser checks, including generation across 150 preference configurations, and the manual checks completed. Passing these checks does not establish production readiness, nutritional balance, or comprehensive allergy safety.
 
 ### Known Limitations
 
@@ -122,7 +122,7 @@ There is no analytics instrumentation or recorded user-study baseline. The measu
 - **Exclusion vocabulary:** Recognised names, common plurals, and aliases resolve to ingredient IDs or allergen tags. Explicit chickpea/chana/besan mappings now exclude both whole chickpeas and besan, including supported flour names. Named pulse and semolina aliases are supported; ambiguous terms such as “dal” still require clarification. Unknown exclusions require clarification, including ingredients absent from the catalogue. The previous groundnut/non-peanut-oil and plural-matching defects are fixed; this is not unrestricted natural-language interpretation.
 - **Incomplete safety knowledge:** The app cannot identify unknown ingredients, product substitutions, or cross-contact. Diet classification recognises only specific ingredient keys and must be extended carefully with new foods.
 - **Limited planning intelligence:** No nutritional, cost, or preparation optimisation. Lunch and dinner share a catalogue; there is no previous-week memory, actual date scheduling, or guaranteed egg/meat frequency. With the current catalogue, a 15-minute limit leaves lunch and dinner empty.
-- **Local persistence only:** One household and week per browser origin. Clearing site data loses it. Invalid menus are rebuilt under valid saved restrictions and stale checkmarks are cleared. Unreadable preferences require confirmation before planning. Catalogue-version changes clear shopping ticks; there is no general historical-data migration system.
+- **Local persistence only:** One guest household and one separate local household per signed-in account on a browser origin. Clearing site data loses it. Invalid menus are rebuilt under valid saved restrictions and stale checkmarks are cleared. Unreadable preferences require confirmation before planning. Catalogue-version changes clear shopping ticks; there is no general historical-data migration system.
 - **Serving assumptions:** Quantities use adult servings and do not account for children, appetite, pantry stock, package sizes, or increased batch cooking time.
 - **Verification gaps:** Real-phone, screen-reader and cross-browser file-save verification remain. Automated browser checks cover swaps, groceries, refresh, empty/error states and five viewport widths. Storage/download failures are simulated. Variety regression checks cover ranking and fallback; some older filter checks can pass on an empty result. The greedy planner does not guarantee globally optimal variety.
 
@@ -139,3 +139,11 @@ These are candidates for prioritisation after product-owner review and user rese
 5. **Support shared ongoing use:** Consider accounts, multiple weeks, cloud storage, and household sharing when cross-device use becomes a validated requirement.
 
 A public pilot would also need hosting and a reliable release process. React, a backend, or a database should be introduced only for demonstrated needs; they are not automatically required to publish a static app. See [ARCHITECTURE.md](ARCHITECTURE.md) for the current technical design and change criteria.
+
+## Email sign-in and ingredients at home
+
+Optional email-link sign-in uses Supabase when configured; guests can plan without accounts. Live email delivery and provider sessions remain unverified until the owner completes [SIGN_IN_SETUP.md](SIGN_IN_SETUP.md). Sign-in does not yet sync household data between devices. Selecting ingredients at home favours matching dishes only after the established variety rules. Allergy and dislike filters still exclude those ingredients. The grocery list marks selected stock but does not subtract quantities that the user has not entered.
+
+### Current interface update
+
+Household size can be edited directly from the header without regenerating meals. A changed size resets shopping checkmarks and scales quantities. First-time and new-week setup use three steps, with draft-preserving Back/Continue controls. Phones show one selected day; larger screens retain the weekly grid. Swap buttons have visible labels. Grocery categories distinguish items to check/buy from pantry items whose stock still needs checking. Email sign-in still requires the Supabase configuration described in SIGN_IN_SETUP.md.

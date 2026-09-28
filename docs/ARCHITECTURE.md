@@ -4,7 +4,7 @@ This document describes the existing MVP: an Indian household meal planner with 
 
 ## 1. System architecture
 
-GharKa runs in the user's browser. The browser displays the interface, chooses meals, calculates quantities, and saves the current household locally. Recommendations use a fixed catalogue and rules; there is no AI model, application backend, account system, or cloud database.
+GharKa runs in the user's browser. The browser displays the interface, chooses meals, calculates quantities, and saves the current household locally. Recommendations use a fixed catalogue and rules; there is no AI model or application backend; optional Supabase authentication requires configuration.
 
 A **static server** delivers files without making meal-planning decisions. During local development, Python performs that job.
 
@@ -70,7 +70,7 @@ A day stores dish IDs, rather than full copies of recipes. For example:
 
 ## 3. Startup and data flow
 
-On startup, `index.html` loads `boot.js` and the main module, `app.js`. That module imports the catalogue and planner functions, uses `state.js` to restore saved data. First-time visitors receive a default plan. Invalid menus are rebuilt with valid saved restrictions; unreadable preferences require confirmation and show no suggested dishes. It saves safe state and calls `render()`.
+On startup, `index.html` loads `boot.js` and the main module, `app.js`. That module imports the catalogue and planner functions, uses `state.js` to restore saved data. First-time visitors receive an empty plan and are taken to household setup; defaults prefill questions, not meals. Invalid menus are rebuilt with valid saved restrictions; unreadable preferences require confirmation and show no suggested dishes. It saves safe state and calls `render()`.
 
 Defaults are vegetarian, four people, all four meal slots, all cuisines, no exclusions, and a 45-minute limit per meal.
 
@@ -131,7 +131,7 @@ All four slots produce 28 meal positions; dinner alone produces seven. Days are 
 
 `replacement()` reapplies eligibility, excludes the current dish, and calls the same `rankCandidates()` against the rest of the week, including both adjacent days. It returns the best eligible alternative even when repetition is unavoidable. With no alternative, it returns `null` and the interface keeps the existing meal.
 
-Ranking compares these values in order, with lower values preferred: same-day exact-dish occurrences; same-day major-tag overlaps; weekly dish occurrences; adjacent-day meals sharing an ID or family; total weekly major-tag plus family-tag overlaps. Dish ID breaks a complete tie using stable string ordering. Each priority wins over every later priority; candidates are never removed by variety. Multiple major ingredients and families are supported. There is no base balancing or weighted optimisation.
+Ranking compares these values in order, with lower values preferred: same-day exact-dish occurrences; same-day major-tag overlaps; weekly dish occurrences; adjacent-day meals sharing an ID or family; total weekly major-tag plus family-tag overlaps. Selected pantry ingredient matches break a remaining variety tie (more matches first), then dish ID uses stable string ordering. Each priority wins over every later priority; candidates are never removed by variety. Multiple major ingredients and families are supported. There is no base balancing or weighted optimisation.
 
 Metadata labels describe culinary roles. Thepla's minor besan does not count as chickpea-major, but remains fully subject to exclusions. Onion defines kanda poha and tomato defines rasam/sandwich; routine seasonings elsewhere do not drive variety. Existing ingredient quantities, allergens and saved-plan validity are unchanged, so no catalogue-version bump is needed.
 
@@ -183,7 +183,7 @@ A catalogue-version change keeps valid meal IDs but clears shopping ticks becaus
 Important boundaries:
 
 - Storage belongs to that browser profile and origin: protocol, host, and port. `localhost:5173` and `127.0.0.1:5173` do not share it.
-- There is one household and one current plan per stored record; no account, sync, backup, or history.
+- There is one household and one current plan per stored record; no cloud sync, backup, or history. Guest and signed-in accounts use separate local records.
 - Refresh returns to the weekly-plan screen and discards unsaved form edits.
 - Clearing site data removes saved information. Storage access or writes can fail.
 - Recipe contents are not saved with the plan. Catalogue edits can change quantities for previously saved dish IDs.
@@ -206,9 +206,9 @@ flowchart TD
 
 With the server running, open `http://127.0.0.1:5173/tests/`. Alternatively, use `npm test` when Node/npm are installed. The Node adapter uses built-in `node:test` and `node:assert/strict`; no test package is required.
 
-The 68 shared checks cover filters and dietary regressions, generation across 150 constructed household configurations, swaps, explicit recipe ingredients, grocery arithmetic, household scaling, display precision, empty plans, preference validation, saved-state restoration, catalogue updates and failed storage. Variety regressions cover explicit metadata, ordered preferences, deterministic selection, hard-constraint fallback, swaps, groceries and preservation of safe saved plans.
+The 73 shared checks cover filters and dietary regressions, generation across 150 constructed household configurations, swaps, explicit recipe ingredients, grocery arithmetic, household scaling, display precision, empty plans, preference validation, saved-state restoration, catalogue updates and failed storage. Variety regressions cover explicit metadata, ordered preferences, deterministic selection, hard-constraint fallback, swaps, groceries and preservation of safe saved plans.
 
-Open `/tests/browser.html` and select **Run browser checks** for 18 additional automated checks. The runner loads the actual application into an iframe and substitutes in-memory storage, protecting the user's saved household. It exercises swaps, checklist updates, reload, dialogs, invalid forms, empty states, corrupt records, blocked/quota storage, download content/failure, runtime-error feedback and layouts at 320, 375, 390, 768 and 1200 pixels.
+Open `/tests/browser.html` and select **Run browser checks** for 25 additional automated checks. The runner loads the actual application into an iframe and substitutes in-memory storage, protecting the user's saved household. It exercises swaps, checklist updates, reload, dialogs, invalid forms, empty states, corrupt records, blocked/quota storage, download content/failure, runtime-error feedback and layouts at 320, 375, 390, 768 and 1200 pixels.
 
 Download checks intercept the browser API to verify the generated file content; they do not prove that every operating system saves the file correctly. Viewport checks do not replace real-phone or screen-reader testing. Tests do not establish recipe accuracy, nutritional balance or comprehensive allergy safety. See [TESTING.md](TESTING.md) for evidence and remaining checks.
 
@@ -245,3 +245,17 @@ These are existing limitations, not changes made by this document:
 - Portions assume adults, cooking times assume some advance preparation, and no nutrition or budget optimisation exists.
 
 Content correctness and missing tests should be addressed before adding architectural complexity. The product scope remains documented in [MVP.md](MVP.md).
+
+## Optional authentication and guided setup
+
+`src/auth.js` isolates provider calls behind `createEmailAuth()`. `src/auth-config.js` holds only public Supabase settings; empty/invalid configuration leaves email login unavailable and guest planning usable. The pinned Supabase browser SDK is dynamically loaded from jsDelivr only with valid configuration. This single authentication dependency avoids implementing session/refresh-token handling ourselves. No frontend framework or build dependency was added.
+
+The SDK handles email-link callbacks, session persistence/refresh and local sign-out. Redirect URLs are derived from the app directory, preserving `/gharka/`. `switchAccount()` in `app.js` loads a separate local household via `householdStorageKey()`; guest data is not copied into account profiles. Signed-in plans remain local and are not access-controlled cloud records. Browser storage separation prevents accidental mixing in normal use; it is not encryption or protection against someone with access to the browser profile.
+
+Missing provider configuration or SDK failure leaves a guest option. No email delivery is claimed until `signInWithOtp()` returns success. Production email requires provider-side SMTP configuration. Owner steps and live-test gaps are in `SIGN_IN_SETUP.md`.
+
+`restoreState(null)` now requires setup and cannot save a default week. The initial view is preferences when confirmation is required. Plan navigation cannot bypass it. “Plan a new week” opens setup without replacing the saved plan; submission still validates every hard restriction. Optional `prefs.pantry` stores explicit ingredient IDs and is backward-compatible with older records without that field. Pantry contributes a soft final ranking criterion in both generation and replacement. Grocery amounts stay exact; labels identify stock needing a quantity check.
+
+### Interface state
+
+`src/app.js` owns the three-step form (`setupWizard`), household dialog (`openHousehold`) and selected mobile day. Wizard navigation hides panels without rebuilding their inputs, retaining drafts. Household edits update `prefs.people`, clear stale shopping ticks and use the existing save path; they do not call `generatePlan`. Setup edits remain unsaved drafts. Day selection only changes visibility and is not persisted. Grocery stock headings do not change quantity calculations. No new dependencies or storage schema were needed for these interface changes.

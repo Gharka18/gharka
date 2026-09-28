@@ -43,3 +43,11 @@ Data isn't synchronized between devices.
 
 Future:
 Move user profiles to backend storage.
+
+## Decision 004 — Confirm preferences before first planning
+
+New visitors must confirm household restrictions before any meal plan is created. Ingredients at home are optional and influence only otherwise equally varied suggestions. Unknown stock amounts do not reduce grocery totals. Existing saved households remain usable.
+
+## Decision 005 — Optional hosted email authentication
+
+Use Supabase email links with a guest option, retaining vanilla JavaScript. Load its pinned maintained SDK only when configured, rather than inventing password/session handling. Public connection settings are pending owner setup. Plans stay in separate local guest/account records; cross-device storage is future work. Live email/SMTP/callback verification is required before advertising sign-in as available.

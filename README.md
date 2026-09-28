@@ -14,11 +14,11 @@ python3 -m http.server 5173 --bind 127.0.0.1
 
 Keep that Terminal window open. Press Control+C when you want to stop the server. Open the address in Safari, Chrome or another current browser; do not double-click `index.html`, because JavaScript modules need the local server.
 
-No Node installation, package installation, account, or API key is required. Python 3 is already available on this computer.
+No Node installation, package installation, account, or API key is required for guest meal planning. Python 3 is already available on this computer.
 
 ## Try the main features
 
-1. Open **My preferences**. Choose diet, family size, meals, cuisines, dislikes, allergies and cooking time. Select **Save & create my week**.
+1. On first use, complete the household setup before any meals are generated. Returning users can open **My preferences**. Choose diet, family size, meals, cuisines, dislikes, allergies and cooking time. Select ingredients already at home, then choose **Create my week** (or **Save & create my week** for a returning household).
 2. Browse seven days. Use the **↻** beside a meal to replace only that dish. Click its name for ingredients and cooking notes.
 3. Open **Grocery list**. Ingredients from the whole week are combined and scaled for your household. Tick purchased items or choose **Download list** for a text file.
 4. Refresh the page. Your household preferences, plan and grocery checkmarks remain saved in this browser.
@@ -53,13 +53,13 @@ src/
 
 ## Automated checks
 
-With the server running, open **http://127.0.0.1:5173/tests/**. It runs the same 68 checks used for planner verification. If Node is installed later, you can also run `npm test` without installing packages.
+With the server running, open **http://127.0.0.1:5173/tests/**. It runs the same 73 checks used for planner verification. If Node is installed later, you can also run `npm test` without installing packages.
 
-Open **http://127.0.0.1:5173/tests/browser.html** and select **Run browser checks** for 18 additional checks covering screen interactions, recovery and responsive layouts. These use isolated memory storage and do not change your saved household.
+Open **http://127.0.0.1:5173/tests/browser.html** and select **Run browser checks** for 25 additional checks covering screen interactions, recovery and responsive layouts. These use isolated memory storage and do not change your saved household.
 
 ## First-version boundaries
 
-- Local only: no sign-in, shared household accounts or cloud backups. Clearing browser storage removes saved data.
+- Plans remain local: no shared households, cloud backup or cross-device sync. Optional email sign-in requires Supabase configuration; guest access works without it. Guest and account plans use separate browser storage keys. Clearing browser storage removes saved data.
 - Suggestions use rules and a curated catalogue, rather than a remote AI service. A selected cuisine limits regional dishes; everyday Indian options remain available.
 - Diets indicate allowed foods, not a required frequency of eggs or meat. Limited matching dishes can repeat.
 - Cooking times assume soaked pulses and prepared batter where mentioned. Quantities are approximate adult servings. Cooking notes are brief starting points, not fully tested recipes or medical/nutritional advice.
@@ -69,3 +69,18 @@ Open **http://127.0.0.1:5173/tests/browser.html** and select **Run browser check
 Read [the MVP plan](docs/MVP.md) for scope and future phases. The app is ready for a local pilot; it has not been published online.
 
 Meal Variety V1 uses reviewed major-ingredient and dish-family labels in `src/variety-data.js`. Generation and Swap share a deterministic ranking: same-day duplicates, same-day major overlap, weekly dish count, adjacent families, weekly major/family use, then dish ID. Restrictions always win; valid repeats beat empty slots. Regenerating unchanged preferences currently returns the same week. There is no rice/roti balancing.
+
+## Sign-in and first-time setup
+
+The **Sign in** button offers an email link when the project is configured, with **Continue as guest** always available. `src/auth-config.js` intentionally contains blank public settings until the owner supplies a Supabase project URL and publishable key. No email is sent or successful login simulated without a provider. Follow [SIGN_IN_SETUP.md](docs/SIGN_IN_SETUP.md) to activate it.
+
+New visitors answer household preferences and optionally select ingredients at home before creating a plan. **Plan a new week** opens those questions rather than immediately replacing the saved plan. Pantry ingredients are a soft tie-breaker after variety; they never relax diet, allergies, dislikes, cuisine or cooking time. Groceries and downloads mark ingredients already at home but keep full required quantities, because stock quantities are not collected.
+
+The maintained Supabase JS client (2.117.2) is loaded from jsDelivr only when configured. It handles email-link sessions and sign-out; it does not upload meal plans. The app remains vanilla JavaScript without a build step.
+
+### Local interface improvements
+
+- Use **Edit** beside My household to change the number of people (1–12). Existing meals stay unchanged; grocery quantities scale and shopping checkmarks reset only when the size changes. During setup, editing changes only the draft.
+- Setup has three steps: Household → Preferences → Ingredients. Back keeps your draft. A plan is saved only after the final confirmation.
+- On phones, choose a day above the menu. Desktop keeps the full weekly grid. Every replacement button is labelled **Swap**.
+- Grocery categories separate **To check / buy** from **Already at home**. Check stock against the full weekly quantities.

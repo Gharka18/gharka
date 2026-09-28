@@ -62,3 +62,46 @@ progress{max-width:100%}
   .tip-card button{margin-left:0;flex-basis:100%}
   .summary-tags{gap:10px}
 }
+
+/* Guided setup and available ingredients. */
+.setup-intro{margin-top:0}
+.setup-intro strong{font-size:16px}
+.pantry-panel{grid-column:1/-1}
+.pantry-panel h2{margin-bottom:10px}
+.pantry-group{border-top:1px solid var(--border);padding:12px 0}
+.pantry-group summary{cursor:pointer;font-size:14px;font-weight:600;min-height:32px}
+.pantry-group .choice-row{margin-top:12px}
+.pantry-note{display:block;color:#5f6c5c;font-size:11px;margin-top:4px}
+
+.account-controls{display:flex;align-items:center;gap:16px}
+#sign-in-form{margin-top:20px}
+#sign-in-form .primary{margin-top:14px;white-space:normal}
+#auth-message{overflow-wrap:anywhere}
+#auth-dialog p{overflow-wrap:anywhere}
+@media(max-width:600px){.topbar{height:auto;min-height:72px;flex-wrap:wrap;gap:12px;padding:12px 18px}.account-controls{gap:12px;flex-wrap:wrap}.topbar>span{max-width:100%}}
+
+/* A calmer, guided household setup. */
+[hidden]{display:none!important}
+.household{font-size:14px}.household small{font-size:12px}
+#edit-household{padding:8px;min-height:44px}
+.swap{width:auto;min-width:64px;min-height:44px;padding:6px;font-size:13px;font-weight:600}
+.preference-layout{grid-template-columns:minmax(0,1fr);max-width:800px;margin:auto}
+.setup-steps{list-style:none;display:flex;padding:0;gap:12px;margin:0 0 20px}
+.setup-steps li{flex:1;border-bottom:3px solid var(--border);padding:12px 4px;color:#5f6c5c;font-size:14px}
+.setup-steps li[aria-current]{border-color:var(--orange);color:var(--green);font-weight:700}
+.wizard-actions{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap}
+.people-stepper{display:flex;gap:12px;align-items:center;margin:16px 0}
+.people-stepper input{max-width:100px;text-align:center}
+.people-stepper button{min-width:44px;min-height:44px;font-size:20px}
+.day-picker{display:none}
+@media(max-width:600px){
+ .meal-cell{grid-template-columns:minmax(0,1fr) 66px}
+ .day-picker{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin:16px 0}
+ .day-button{min-height:44px;border:1px solid var(--border);border-radius:8px;background:white;color:var(--green);padding:4px 0;font-size:12px}
+ .day-button[aria-pressed=true]{background:var(--green);color:white;border-color:var(--green)}
+ [data-menu-day]:not(.selected-day){display:none}
+ .setup-steps{gap:6px}.setup-steps li{font-size:12px;overflow-wrap:anywhere}
+ .household{gap:8px}.account-controls{gap:8px}
+}
+
+.grocery-stock-heading{margin:0;padding:12px 18px;font-size:12px;color:#5f6c5c;background:#fafbf8}
